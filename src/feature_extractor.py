@@ -33,10 +33,10 @@ class FeatureExtractor:
             nr = int(r * 2)
 
             face_img = img[ny:ny + nr, nx:nx + nr]
-            result = cv2.resize(face_img, (256, 256))
+            result = cv2.resize(face_img, (224, 224))
             i += 1
 
-        return cv2.resize(cv2.imread(image_path), (256, 256))
+        return result  # cv2.resize(cv2.imread(image_path), (256, 256))
 
     @staticmethod
     def optical_flow(images):
@@ -64,19 +64,34 @@ class FeatureExtractor:
         return result
 
     def spatial_features(self, image_path):
-        img = image.load_img(image_path, target_size=(224, 224))
+        img = self.detect_and_crop_face(image_path)  # image.load_img(image_path, target_size=(224, 224))
 
         img_array = image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
         img_array = preprocess_input(img_array)
 
         # Get pre-last layer
-        model_extractfeatures = Model(input=self.model.input, output=self.model.get_layer('fc2').output)
+        model_extract_features = Model(input=self.model.input, output=self.model.get_layer('fc2').output)
 
         # Extract features
-        fc2_features = model_extractfeatures.predict(img_array)
+        fc2_features = model_extract_features.predict(img_array)
 
         # Reshape the output
         fc2_features = fc2_features.reshape((4096, 1))
 
         return fc2_features
+
+    @staticmethod
+    def normalize_and_concat(list1, list2):
+        list3 = []
+
+        min1 = min(list1)
+        max1 = max(list1)
+        list3.extend([round((i - min1) / (max1 - min1)) for i in list1])
+
+        min2 = min(list2)
+        max2 = max(list2)
+        list3.extend([round((i - min2) / (max2 - min2)) for i in list2])
+
+        return list3
+

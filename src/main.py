@@ -5,13 +5,21 @@ import numpy
 from src.feature_extractor import FeatureExtractor
 from src.recognition import Recognition
 
+
+feature = 'combined'
+
+dimension_dict = {
+    'spatial': 224 * 224 * 3,
+    'temporal': 4096,
+    'combined': (224 * 224 * 3) + 4096
+}
+
 fe = FeatureExtractor()
 
 emotions = sorted(os.listdir('/home/yilmaz/school/Facial-Expression-Recognition/DATA/TRAIN'))
 
-r = Recognition(number_of_labels=len(emotions), dimension=256*256*3)
+r = Recognition(number_of_labels=len(emotions), dimension=dimension_dict['feature'])
 
-print(len(emotions))
 
 data = []
 labels = []
@@ -27,16 +35,29 @@ for emotion in emotions:
 
             images = [os.path.join(emotion_path, path1, path2, img) for img in images]
 
-            optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images])
+            if feature == 'temporal':
+                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images])
 
-            data.append(optical_flow.reshape(256*256*3))
-            labels.append(i)
+                data.append(optical_flow.reshape(224 * 224 * 3))
+                labels.append(i)
 
-            # for img_path in images:
-            #     features = fe.spatial_features(img_path)
-            #
-            #     data.append([x[0] for x in features])
-            #     labels.append(i)
+            elif feature == 'spatial':
+                for img_path in images:
+                    features = fe.spatial_features(img_path)
+
+                    data.append([x[0] for x in features])
+                    labels.append(i)
+
+            elif feature == 'combination':
+                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images]).reshape(224 * 224 * 3)
+
+                for img_path in images:
+                    features = fe.spatial_features(img_path)
+
+                    combined = fe.normalize_and_concat([x[0] for x in features], optical_flow)
+
+                    data.append(combined)
+                    labels.append(i)
     i += 1
 
 print('TRAIN')
@@ -62,16 +83,28 @@ for emotion in emotions:
 
             images = [os.path.join(emotion_path, path1, path2, img) for img in images]
 
-            optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images])
+            if feature == 'temporal':
+                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images])
 
-            data.append(optical_flow.reshape(256*256*3))
-            labels.append(i)
+                data.append(optical_flow.reshape(224 * 224 * 3))
+                labels.append(i)
+            elif feature == 'spatial':
 
-            # for img_path in images:
-            #     features = fe.spatial_features(img_path)
-            #
-            #     data.append([x[0] for x in features])
-            #     labels.append(i)
+                for img_path in images:
+                    features = fe.spatial_features(img_path)
+
+                    data.append([x[0] for x in features])
+                    labels.append(i)
+            elif feature == 'combined':
+                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images]).reshape(224 * 224 * 3)
+
+                for img_path in images:
+                    features = fe.spatial_features(img_path)
+
+                    combined = fe.normalize_and_concat([x[0] for x in features], optical_flow)
+
+                    data.append(combined)
+                    labels.append(i)
     i += 1
 
 print('TEST')
