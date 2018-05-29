@@ -13,10 +13,10 @@ class SingleLayerPerceptron:
         self.model.add(BatchNormalization())
         self.model.add(Dense(number_of_labels, activation='sigmoid'))
 
-        self.model.compile(loss='sparse_categorical_crossentropy', optimizer='adagrad', metrics=['accuracy'])
+        self.model.compile(loss='sparse_categorical_crossentropy', optimizer='adadelta', metrics=['accuracy'])
 
     def train(self, epochs, data, labels):
         self.model.fit(data, labels, shuffle=True, epochs=epochs, batch_size=4)
 
     def test(self, data, labels):
-        return self.model.evaluate(data, labels, batch_size=4)
+        return self.model.evaluate(data, labels, batch_size=4, verbose=0)

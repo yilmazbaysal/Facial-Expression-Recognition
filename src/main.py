@@ -1,4 +1,3 @@
-import cv2
 import os
 
 import numpy
@@ -55,7 +54,7 @@ for images, label_id in data_reader('/home/yilmaz/school/Facial-Expression-Recog
 
 print('Training with temporal features\n...')
 temporal_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['temporal'])
-temporal_classifier.train(6, numpy.array(train_data['temporal_data']), train_data['temporal_labels'])
+temporal_classifier.train(7, numpy.array(train_data['temporal_data']), train_data['temporal_labels'])
 
 print('Training with spatial features\n...')
 spatial_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['spatial'])
@@ -63,8 +62,10 @@ spatial_classifier.train(2, numpy.array(train_data['spatial_data']), train_data[
 
 print('Training with combined (temporal and spatial) features\n...')
 combined_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['combined'])
-combined_classifier.train(5, numpy.array(train_data['combined_data']), train_data['combined_labels'])
+combined_classifier.train(3, numpy.array(train_data['combined_data']), train_data['combined_labels'])
 
+# Clear the memory
+train_data.clear()
 
 #
 #
@@ -102,14 +103,14 @@ for images, label_id in data_reader('/home/yilmaz/school/Facial-Expression-Recog
         test_data['combined_labels'].append(label_id)
 
 
-print('Testing with temporal features\n...')
+# print('Testing with temporal features\n...')
 loss, accuracy = temporal_classifier.test(numpy.array(test_data['temporal_data']), test_data['temporal_labels'])
-print('(TEMPORAL) - LOSS:', loss, '---', 'ACCURACY:', accuracy, '\n')
+print('\n(TEMPORAL) - LOSS:', loss, '---', 'ACCURACY:', accuracy, '\n')
 
-print('Testing with spatial features\n...')
+# print('Testing with spatial features\n...')
 loss, accuracy = spatial_classifier.test(numpy.array(test_data['spatial_data']), test_data['spatial_labels'])
 print('(SPATIAL) - LOSS:', loss, '---', 'ACCURACY:', accuracy, '\n')
 
-print('Testing with combined (temporal and spatial) features\n...')
+# print('Testing with combined (temporal and spatial) features\n...')
 loss, accuracy = combined_classifier.test(numpy.array(test_data['combined_data']), test_data['combined_labels'])
 print('(COMBINED) - LOSS:', loss, '---', 'ACCURACY:', accuracy, '\n')

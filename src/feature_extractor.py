@@ -14,30 +14,6 @@ class FeatureExtractor:
 
         self.model = VGG16(weights='imagenet', include_top=True)
 
-    # def detect_and_crop_face(self, image_path):
-    #     img = cv2.imread(image_path)
-    #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #
-    #     faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
-    #
-    #     i = 0
-    #     result = None
-    #     for (x, y, w, h) in faces:
-    #         img = cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-    #
-    #         r = max(w, h) / 2
-    #         centerx = x + w / 2
-    #         centery = y + h / 2
-    #         nx = int(centerx - r)
-    #         ny = int(centery - r)
-    #         nr = int(r * 2)
-    #
-    #         face_img = img[ny:ny + nr, nx:nx + nr]
-    #         result = cv2.resize(face_img, (224, 224))
-    #         i += 1
-    #
-    #     return result
-
     def crop_faces_at_same_location(self, image_path=None, image_paths=list()):
         # If one image is given
         if image_path:
