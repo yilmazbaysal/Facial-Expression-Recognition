@@ -1,124 +1,115 @@
+import cv2
 import os
 
 import numpy
 
+from src.data_reader import data_reader
 from src.feature_extractor import FeatureExtractor
-from src.recognition import Recognition
+from src.classifier import SingleLayerPerceptron
 
+# To close cpp warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-feature = 'combined'
 
 dimension_dict = {
-    'spatial': 224 * 224 * 3,
-    'temporal': 4096,
+    'temporal': 224 * 224 * 3,
+    'spatial': 4096,
     'combined': (224 * 224 * 3) + 4096
 }
 
+#
+#
+#
+# ################################################### TRAIN ################################################### #
+print('\nExtracting features from train data\n...')
+
+train_data = {
+    'temporal_data': [],
+    'temporal_labels': [],
+    'spatial_data': [],
+    'spatial_labels': [],
+    'combined_data': [],
+    'combined_labels': [],
+}
+
+label_id = None
 fe = FeatureExtractor()
+for images, label_id in data_reader('/home/yilmaz/school/Facial-Expression-Recognition/DATA/TRAIN'):
+    # Temporal features
+    optical_flow = fe.optical_flow(images).reshape(dimension_dict['temporal'])
 
-emotions = sorted(os.listdir('/home/yilmaz/school/Facial-Expression-Recognition/DATA/TRAIN'))
+    train_data['temporal_data'].append(optical_flow)
+    train_data['temporal_labels'].append(label_id)
 
-r = Recognition(number_of_labels=len(emotions), dimension=dimension_dict['feature'])
+    # Spatial features
+    for img_path in images:
+        features = [f[0] for f in fe.spatial_features(img_path)]
 
+        train_data['spatial_data'].append(features)
+        train_data['spatial_labels'].append(label_id)
 
-data = []
-labels = []
-
-i = 0
-path = '/home/yilmaz/school/Facial-Expression-Recognition/DATA/TRAIN'
-for emotion in emotions:
-    emotion_path = os.path.join(path, emotion)
-
-    for path1 in os.listdir(emotion_path):
-        for path2 in os.listdir(os.path.join(emotion_path, path1)):
-            images = sorted(os.listdir(os.path.join(emotion_path, path1, path2)))
-
-            images = [os.path.join(emotion_path, path1, path2, img) for img in images]
-
-            if feature == 'temporal':
-                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images])
-
-                data.append(optical_flow.reshape(224 * 224 * 3))
-                labels.append(i)
-
-            elif feature == 'spatial':
-                for img_path in images:
-                    features = fe.spatial_features(img_path)
-
-                    data.append([x[0] for x in features])
-                    labels.append(i)
-
-            elif feature == 'combination':
-                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images]).reshape(224 * 224 * 3)
-
-                for img_path in images:
-                    features = fe.spatial_features(img_path)
-
-                    combined = fe.normalize_and_concat([x[0] for x in features], optical_flow)
-
-                    data.append(combined)
-                    labels.append(i)
-    i += 1
-
-print('TRAIN')
-r.train(numpy.array(data), labels)
+        # Combined features
+        train_data['combined_data'].append(fe.normalize_and_concat(optical_flow, features))
+        train_data['combined_labels'].append(label_id)
 
 
-####################################################
+print('Training with temporal features\n...')
+temporal_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['temporal'])
+temporal_classifier.train(6, numpy.array(train_data['temporal_data']), train_data['temporal_labels'])
+
+print('Training with spatial features\n...')
+spatial_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['spatial'])
+spatial_classifier.train(numpy.array(2, train_data['spatial_data']), train_data['spatial_labels'])
+
+print('Training with combined (temporal and spatial) features\n...')
+combined_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['combined'])
+combined_classifier.train(numpy.array(3, train_data['combined_data']), train_data['combined_labels'])
 
 
-emotions = sorted(os.listdir('/home/yilmaz/school/Facial-Expression-Recognition/DATA/TEST'))
-
-data = []
-labels = []
-
-i = 0
-path = '/home/yilmaz/school/Facial-Expression-Recognition/DATA/TEST'
-for emotion in emotions:
-    emotion_path = os.path.join(path, emotion)
-
-    for path1 in os.listdir(emotion_path):
-        for path2 in os.listdir(os.path.join(emotion_path, path1)):
-            images = sorted(os.listdir(os.path.join(emotion_path, path1, path2)))
-
-            images = [os.path.join(emotion_path, path1, path2, img) for img in images]
-
-            if feature == 'temporal':
-                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images])
-
-                data.append(optical_flow.reshape(224 * 224 * 3))
-                labels.append(i)
-            elif feature == 'spatial':
-
-                for img_path in images:
-                    features = fe.spatial_features(img_path)
-
-                    data.append([x[0] for x in features])
-                    labels.append(i)
-            elif feature == 'combined':
-                optical_flow = fe.optical_flow([fe.detect_and_crop_face(img) for img in images]).reshape(224 * 224 * 3)
-
-                for img_path in images:
-                    features = fe.spatial_features(img_path)
-
-                    combined = fe.normalize_and_concat([x[0] for x in features], optical_flow)
-
-                    data.append(combined)
-                    labels.append(i)
-    i += 1
-
-print('TEST')
-
-loss, accuracy = r.test(numpy.array(data), labels)
-
-print('LOSS:', loss, '- ACCURACY:', accuracy)
 #
 #
-# cv2.imshow('1', fe.detect_and_crop_face('/home/yilmaz/Desktop/DATA/TRAIN/anger/S011/004/S011_004_00000018.png'))
-# cv2.imshow('2', fe.detect_and_crop_face('/home/yilmaz/Desktop/DATA/TRAIN/anger/S011/004/S011_004_00000019.png'))
-# cv2.imshow('3', fe.detect_and_crop_face('/home/yilmaz/Desktop/DATA/TRAIN/anger/S011/004/S011_004_00000020.png'))
-# cv2.imshow('4', fe.detect_and_crop_face('/home/yilmaz/Desktop/DATA/TRAIN/anger/S011/004/S011_004_00000021.png'))
 #
-#
-# cv2.imshow('t', test)
-# cv2.waitKey(0)
+# ################################################### TEST ################################################### #
+print('\nExtracting features from test data\n...')
+
+
+test_data = {
+    'temporal_data': [],
+    'temporal_labels': [],
+    'spatial_data': [],
+    'spatial_labels': [],
+    'combined_data': [],
+    'combined_labels': [],
+}
+
+fe = FeatureExtractor()
+for images, label_id in data_reader('/home/yilmaz/school/Facial-Expression-Recognition/DATA/TEST'):
+    # Temporal features
+    optical_flow = fe.optical_flow(images).reshape(dimension_dict['temporal'])
+
+    test_data['temporal_data'].append(optical_flow)
+    test_data['temporal_labels'].append(label_id)
+
+    # Spatial features
+    for img_path in images:
+        features = [f[0] for f in fe.spatial_features(img_path)]
+
+        test_data['spatial_data'].append(features)
+        test_data['spatial_labels'].append(label_id)
+
+        # Combined features
+        test_data['combined_data'].append(fe.normalize_and_concat(optical_flow, features))
+        test_data['combined_labels'].append(label_id)
+
+
+print('Testing with temporal features\n...')
+loss, accuracy = temporal_classifier.test(numpy.array(test_data['temporal_data']), test_data['temporal_labels'])
+print('(TEMPORAL) - LOSS:', loss, '---', 'ACCURACY:', accuracy, '\n')
+
+print('Testing with spatial features\n...')
+loss, accuracy = spatial_classifier.test(numpy.array(test_data['spatial_data']), test_data['spatial_labels'])
+print('(SPATIAL) - LOSS:', loss, '---', 'ACCURACY:', accuracy, '\n')
+
+print('Testing with combined (temporal and spatial) features\n...')
+loss, accuracy = combined_classifier.test(numpy.array(test_data['combined_data']), test_data['combined_labels'])
+print('(COMBINED) - LOSS:', loss, '---', 'ACCURACY:', accuracy, '\n')

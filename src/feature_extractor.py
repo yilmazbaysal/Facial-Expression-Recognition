@@ -14,41 +14,72 @@ class FeatureExtractor:
 
         self.model = VGG16(weights='imagenet', include_top=True)
 
-    def detect_and_crop_face(self, image_path):
-        img = cv2.imread(image_path)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # def detect_and_crop_face(self, image_path):
+    #     img = cv2.imread(image_path)
+    #     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    #
+    #     faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
+    #
+    #     i = 0
+    #     result = None
+    #     for (x, y, w, h) in faces:
+    #         img = cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    #
+    #         r = max(w, h) / 2
+    #         centerx = x + w / 2
+    #         centery = y + h / 2
+    #         nx = int(centerx - r)
+    #         ny = int(centery - r)
+    #         nr = int(r * 2)
+    #
+    #         face_img = img[ny:ny + nr, nx:nx + nr]
+    #         result = cv2.resize(face_img, (224, 224))
+    #         i += 1
+    #
+    #     return result
 
-        faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
+    def crop_faces_at_same_location(self, image_path=None, image_paths=list()):
+        # If one image is given
+        if image_path:
+            image_paths.append(image_path)
 
-        i = 0
-        result = None
-        for (x, y, w, h) in faces:
-            img = cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        nx = None
+        ny = None
+        nr = None
+        for i in range(len(image_paths)):
+            img = cv2.imread(image_paths[i])
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-            r = max(w, h) / 2
-            centerx = x + w / 2
-            centery = y + h / 2
-            nx = int(centerx - r)
-            ny = int(centery - r)
-            nr = int(r * 2)
+            # Extract face
+            x, y, w, h = self.face_cascade.detectMultiScale(gray, 1.3, 5)[0]
 
+            # Calculate location for only the first image, for others use these values
+            if i == 0:
+                r = max(w, h) / 2
+                centerx = x + w / 2
+                centery = y + h / 2
+                nx = int(centerx - r)
+                ny = int(centery - r)
+                nr = int(r * 2)
+
+            # Crop the face
             face_img = img[ny:ny + nr, nx:nx + nr]
-            result = cv2.resize(face_img, (224, 224))
-            i += 1
 
-        return result  # cv2.resize(cv2.imread(image_path), (256, 256))
+            # Yield the result or results
+            yield cv2.resize(face_img, (224, 224))
 
-    @staticmethod
-    def optical_flow(images):
+    def optical_flow(self, images):
+        # Crop faces
+        images = [img for img in self.crop_faces_at_same_location(image_paths=images)]
+
         frame1 = images[0]
         previous_image = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
         hsv = np.zeros_like(frame1)
         hsv[..., 1] = 255
 
-        counter = 1
         result = None
-        while counter < len(images):
-            frame2 = images[counter]
+        for i in range(1, len(images)):
+            frame2 = images[i]
             next_img = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
 
             flow = cv2.calcOpticalFlowFarneback(previous_image, next_img, None, 0.5, 3, 15, 3, 5, 1.2, 0)
@@ -59,19 +90,15 @@ class FeatureExtractor:
 
             previous_image = next_img
 
-            counter += 1
-
         return result
 
     def spatial_features(self, image_path):
-        img = self.detect_and_crop_face(image_path)  # image.load_img(image_path, target_size=(224, 224))
-
-        img_array = image.img_to_array(img)
+        img_array = image.img_to_array(self.crop_faces_at_same_location(image_path=image_path).__next__())
         img_array = np.expand_dims(img_array, axis=0)
         img_array = preprocess_input(img_array)
 
         # Get pre-last layer
-        model_extract_features = Model(input=self.model.input, output=self.model.get_layer('fc2').output)
+        model_extract_features = Model(inputs=self.model.inputs, outputs=self.model.get_layer('fc2').output)
 
         # Extract features
         fc2_features = model_extract_features.predict(img_array)
@@ -83,15 +110,18 @@ class FeatureExtractor:
 
     @staticmethod
     def normalize_and_concat(list1, list2):
+        """
+        Normalize data by reducing it to 0-1 interval
+        """
         list3 = []
 
         min1 = min(list1)
         max1 = max(list1)
-        list3.extend([round((i - min1) / (max1 - min1)) for i in list1])
+        list3.extend([(i - min1) / (max1 - min1) for i in list1])
 
         min2 = min(list2)
         max2 = max(list2)
-        list3.extend([round((i - min2) / (max2 - min2)) for i in list2])
+        list3.extend([(i - min2) / (max2 - min2) for i in list2])
 
         return list3
 
