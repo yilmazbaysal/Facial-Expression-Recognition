@@ -59,11 +59,11 @@ temporal_classifier.train(6, numpy.array(train_data['temporal_data']), train_dat
 
 print('Training with spatial features\n...')
 spatial_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['spatial'])
-spatial_classifier.train(numpy.array(2, train_data['spatial_data']), train_data['spatial_labels'])
+spatial_classifier.train(2, numpy.array(train_data['spatial_data']), train_data['spatial_labels'])
 
 print('Training with combined (temporal and spatial) features\n...')
 combined_classifier = SingleLayerPerceptron(number_of_labels=label_id + 1, dimension=dimension_dict['combined'])
-combined_classifier.train(numpy.array(3, train_data['combined_data']), train_data['combined_labels'])
+combined_classifier.train(5, numpy.array(train_data['combined_data']), train_data['combined_labels'])
 
 
 #
